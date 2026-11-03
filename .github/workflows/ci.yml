@@ -1,0 +1,139 @@
+name: CloudNative CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-ci:
+    name: Backend Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cloudnative
+          POSTGRES_PASSWORD: cloudnative_test_password
+          POSTGRES_DB: cloudnative_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci || npm install
+
+      - name: Generate Prisma Client
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://cloudnative:cloudnative_test_password@localhost:5432/cloudnative_test_db?schema=public"
+        run: npx prisma generate
+
+      - name: Run Database Migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://cloudnative:cloudnative_test_password@localhost:5432/cloudnative_test_db?schema=public"
+        run: npx prisma db push
+
+      - name: Run Backend Tests
+        working-directory: backend
+        env:
+          NODE_ENV: test
+          PORT: 5001
+          JWT_SECRET: test_jwt_secret_key_ci_pipeline_32chars
+          DATABASE_URL: "postgresql://cloudnative:cloudnative_test_password@localhost:5432/cloudnative_test_db?schema=public"
+          REDIS_URL: "redis://localhost:6379"
+        run: npm test
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: cloudnative-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  frontend-ci:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci || npm install
+
+      - name: Run Frontend Tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Build React Vite application
+        working-directory: frontend
+        env:
+          VITE_API_URL: /api
+        run: npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: cloudnative-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
