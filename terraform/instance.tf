@@ -5,6 +5,8 @@ resource "aws_instance" "cloudnative_server" {
   vpc_security_group_ids = [aws_security_group.cloudnative_sg.id]
   key_name               = aws_key_pair.cloudnative_key.key_name
 
+  iam_instance_profile = aws_iam_instance_profile.cloudnative_profile.name
+
   associate_public_ip_address = true
 
   root_block_device {
@@ -43,6 +45,12 @@ resource "aws_instance" "cloudnative_server" {
 
     mkdir -p /opt/cloudnative
     chown -R ubuntu:ubuntu /opt/cloudnative
+
+    # Install and start AWS Systems Manager Agent
+    snap install amazon-ssm-agent --classic || true
+
+    systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
+    systemctl restart snap.amazon-ssm-agent.amazon-ssm-agent.service
   EOF
 
   tags = {

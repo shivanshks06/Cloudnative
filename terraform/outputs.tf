@@ -22,3 +22,8 @@ output "app_url" {
   description = "CloudNative Web App URL"
   value       = "http://${aws_eip.cloudnative.public_ip}"
 }
+
+output "ssm_connection_command" {
+  description = "Connect to EC2 through AWS Systems Manager"
+  value       = "aws ssm start-session --target ${aws_instance.cloudnative_server.id} --region ap-south-1 --profile cloudnative"
+}
