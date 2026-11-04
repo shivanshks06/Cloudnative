@@ -56,10 +56,46 @@ Write-Host "GitHub secret 'EC2_HOST' successfully updated." -ForegroundColor Gre
 Write-Host "`nTriggering CloudNative CI/CD pipeline..." -ForegroundColor Yellow
 gh workflow run ci.yml --ref main
 
+Write-Host "`nWaiting for CI/CD workflow to register..."
+Start-Sleep -Seconds 5
+
+try {
+    $ciRunId = (gh run list --workflow=ci.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+    if ($ciRunId) {
+        Write-Host "Watching CI/CD Pipeline (Run #$ciRunId)..." -ForegroundColor Yellow
+        gh run watch $ciRunId
+    }
+} catch {
+    Write-Host "Could not watch CI run." -ForegroundColor DarkGray
+}
+
+Write-Host "`nWaiting for EC2 Deployment to start..." -ForegroundColor Yellow
+Start-Sleep -Seconds 8
+
+try {
+    $deployRunId = (gh run list --workflow=deploy.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+    if ($deployRunId) {
+        Write-Host "Watching EC2 Deployment (Run #$deployRunId)..." -ForegroundColor Yellow
+        gh run watch $deployRunId
+    }
+} catch {
+    Write-Host "Could not watch Deployment run." -ForegroundColor DarkGray
+}
+
+Write-Host "`nVerifying application availability at $appUrl..." -ForegroundColor Yellow
+for ($i = 1; $i -le 12; $i++) {
+    try {
+        $response = Invoke-WebRequest -Uri $appUrl -UseBasicParsing -TimeoutSec 3 -ErrorAction SilentlyContinue
+        if ($response.StatusCode -eq 200) {
+            Write-Host "Application is online! (HTTP 200)" -ForegroundColor Green
+            break
+        }
+    } catch {}
+    Write-Host "Waiting for web server to respond (attempt $i/12)..."
+    Start-Sleep -Seconds 5
+}
+
 Write-Host "`n==================================================" -ForegroundColor Cyan
-Write-Host " Deployment workflow triggered successfully!" -ForegroundColor Green
+Write-Host " CloudNative deployment complete!" -ForegroundColor Green
 Write-Host " Web App URL: $appUrl" -ForegroundColor Green
-Write-Host " View workflow run:"
-Write-Host "   gh run list --workflow=ci.yml"
-Write-Host "   gh run watch"
 Write-Host "==================================================" -ForegroundColor Cyan

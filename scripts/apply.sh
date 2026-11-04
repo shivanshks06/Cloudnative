@@ -59,11 +59,38 @@ echo ""
 echo "Triggering CloudNative CI/CD pipeline..."
 gh workflow run ci.yml --ref main
 
+echo "Waiting for CI/CD workflow to register..."
+sleep 5
+
+CI_RUN_ID="$(gh run list --workflow=ci.yml --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)"
+if [ -n "$CI_RUN_ID" ]; then
+  echo "Watching CI/CD Pipeline (Run #$CI_RUN_ID)..."
+  gh run watch "$CI_RUN_ID" || true
+fi
+
+echo ""
+echo "Waiting for EC2 Deployment to start..."
+sleep 8
+DEPLOY_RUN_ID="$(gh run list --workflow=deploy.yml --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)"
+if [ -n "$DEPLOY_RUN_ID" ]; then
+  echo "Watching EC2 Deployment (Run #$DEPLOY_RUN_ID)..."
+  gh run watch "$DEPLOY_RUN_ID" || true
+fi
+
+echo ""
+echo "Verifying application availability at $APP_URL..."
+for attempt in $(seq 1 12); do
+  HTTP_STATUS="$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL" 2>/dev/null || true)"
+  if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "304" ]; then
+    echo "Application is online! (HTTP $HTTP_STATUS)"
+    break
+  fi
+  echo "Waiting for web server to respond (attempt $attempt/12)..."
+  sleep 5
+done
+
 echo ""
 echo "=================================================="
-echo " Deployment workflow triggered successfully!"
+echo " CloudNative deployment complete!"
 echo " Web App URL: $APP_URL"
-echo " View workflow run:"
-echo "   gh run list --workflow=ci.yml"
-echo "   gh run watch"
 echo "=================================================="

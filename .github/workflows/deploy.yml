@@ -36,7 +36,6 @@ jobs:
           test -n "$DOCKERHUB_USERNAME"
 
           rm -f .env
-          umask 077
           printf '%s\n' "$PRODUCTION_ENV" > .env
 
           # Remove old values so the new values are unambiguous.
@@ -51,7 +50,7 @@ jobs:
           echo "CLIENT_URL=http://${EC2_HOST}" >> .env
           echo "DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}" >> .env
 
-          chmod 600 .env
+          chmod 644 .env
           test -s .env
 
       - name: Copy deployment files to EC2
