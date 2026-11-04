@@ -26,12 +26,32 @@ jobs:
         env:
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
           CI_COMMIT: ${{ github.event.workflow_run.head_sha }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
+          set -e
+
           test -n "$PRODUCTION_ENV"
+          test -n "$EC2_HOST"
+          test -n "$DOCKERHUB_USERNAME"
+
           rm -f .env
+          umask 077
           printf '%s\n' "$PRODUCTION_ENV" > .env
+
+          # Remove old values so the new values are unambiguous.
+          sed -i '/^IMAGE_TAG=/d' .env
+          sed -i '/^CLIENT_URL=/d' .env
+          sed -i '/^DOCKERHUB_USERNAME=/d' .env
+
+          # Use the exact image version built by CI.
           echo "IMAGE_TAG=sha-${CI_COMMIT:0:7}" >> .env
-          chmod 644 .env
+
+          # Update configuration for the newly created EC2 instance.
+          echo "CLIENT_URL=http://${EC2_HOST}" >> .env
+          echo "DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}" >> .env
+
+          chmod 600 .env
           test -s .env
 
       - name: Copy deployment files to EC2
@@ -65,4 +85,10 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
 
+            echo "Checking migration..."
+            docker compose logs migrate --tail=100
+
+            echo "Checking containers..."
             docker compose ps
+
+            docker image prune -f
