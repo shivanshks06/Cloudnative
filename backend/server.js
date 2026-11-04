@@ -23,7 +23,20 @@ app.set("trust proxy", 1);
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or server-side calls)
+    if (!origin) return callback(null, true);
+    // Allow configured CLIENT_URL or wildcard
+    if (!process.env.CLIENT_URL || process.env.CLIENT_URL === "*" || origin === process.env.CLIENT_URL) {
+      return callback(null, true);
+    }
+    // Allow local development ports
+    if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+      return callback(null, true);
+    }
+    // Allow dynamic host access (e.g. newly provisioned Elastic IP)
+    return callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json({ limit: "1mb" }));

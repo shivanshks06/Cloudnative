@@ -1,6 +1,7 @@
 name: CloudNative CI/CD Pipeline
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
