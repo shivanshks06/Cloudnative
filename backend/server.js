@@ -18,6 +18,7 @@ const notFound = require("./src/middleware/notFound.middleware");
 const errorHandler = require("./src/middleware/error.middleware");
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.disable("x-powered-by");
 app.use(helmet());

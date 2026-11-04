@@ -70,7 +70,7 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: "postgresql://cloudnative:cloudnative_test_password@localhost:5432/cloudnative_test_db?schema=public"
-        run: npx prisma db push
+        run: npx prisma migrate deploy
 
       - name: Run Backend Tests
         working-directory: backend
