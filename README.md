@@ -96,4 +96,4 @@ docker compose down -v
 
 ## Important security note
 
-This is a learning and development baseline, not a production-ready authentication system. The browser token is stored in localStorage for simplicity. Before production, move to secure HttpOnly cookies, add CSRF protection where appropriate, strengthen validation and authorization, add automated tests, and review secrets and rate limits. Never commit `.env` files or production credentials.
+This is a learning and development baseline, not a production-ready authentication system. The browser token is stored in localStorage for simplicity. Before production, move to secure HttpOnly cookies, add CSRF protection where appropriate, strengthen validation and authorization, add automated tests, and review secrets and rate limits. Never commit `.env` files or production credentials. 
