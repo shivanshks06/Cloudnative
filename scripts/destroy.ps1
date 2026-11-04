@@ -25,7 +25,7 @@ if ($confirmation -ne "DESTROY") {
 }
 
 Write-Host "`nDestroying CloudNative AWS infrastructure..." -ForegroundColor Red
-terraform -chdir="$TfDir" destroy -auto-approve
+terraform -chdir="$TfDir" destroy -auto-approve -lock=false
 
 Write-Host "`n==================================================" -ForegroundColor Green
 Write-Host " All CloudNative AWS resources have been destroyed." -ForegroundColor Green

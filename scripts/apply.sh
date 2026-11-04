@@ -10,20 +10,14 @@ echo "=================================================="
 
 # 1. Check prerequisite tools
 echo "Checking prerequisites..."
-for cmd in terraform aws gh; do
+for cmd in terraform gh; do
   if ! command -v "$cmd" &> /dev/null; then
     echo "Error: '$cmd' is not installed or not in PATH."
     exit 1
   fi
 done
 
-# 2. Check AWS and GitHub authentication
-echo "Verifying AWS credentials..."
-if ! aws sts get-caller-identity > /dev/null 2>&1; then
-  echo "Error: AWS credentials not configured. Please run 'aws configure'."
-  exit 1
-fi
-
+# 2. Check GitHub CLI authentication
 echo "Verifying GitHub CLI authentication..."
 if ! gh auth status > /dev/null 2>&1; then
   echo "Error: GitHub CLI is not authenticated. Please run 'gh auth login'."
@@ -37,7 +31,7 @@ terraform -chdir="$TF_DIR" init
 
 echo ""
 echo "Applying Terraform configuration..."
-terraform -chdir="$TF_DIR" apply -auto-approve
+terraform -chdir="$TF_DIR" apply -auto-approve -lock=false
 
 # 4. Retrieve outputs
 echo ""

@@ -9,7 +9,7 @@ Write-Host "==================================================" -ForegroundColor
 
 # 1. Check prerequisite tools
 Write-Host "Checking prerequisites..."
-$requiredCommands = @("terraform", "aws", "gh")
+$requiredCommands = @("terraform", "gh")
 foreach ($cmd in $requiredCommands) {
     if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
         Write-Error "Error: '$cmd' is not installed or not in PATH."
@@ -17,15 +17,7 @@ foreach ($cmd in $requiredCommands) {
     }
 }
 
-# 2. Check AWS and GitHub authentication
-Write-Host "Verifying AWS credentials..."
-try {
-    aws sts get-caller-identity | Out-Null
-} catch {
-    Write-Error "Error: AWS credentials not configured. Please run 'aws configure'."
-    exit 1
-}
-
+# 2. Check GitHub CLI authentication
 Write-Host "Verifying GitHub CLI authentication..."
 try {
     gh auth status | Out-Null
@@ -39,7 +31,7 @@ Write-Host "`nInitializing Terraform in $TfDir..." -ForegroundColor Yellow
 terraform -chdir="$TfDir" init
 
 Write-Host "`nApplying Terraform configuration..." -ForegroundColor Yellow
-terraform -chdir="$TfDir" apply -auto-approve
+terraform -chdir="$TfDir" apply -auto-approve -lock=false
 
 # 4. Retrieve outputs
 Write-Host "`nRetrieving Terraform outputs..."

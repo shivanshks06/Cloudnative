@@ -12,7 +12,7 @@ echo "by Terraform (EC2 instance, Elastic IP, VPC, etc.)."
 echo "=================================================="
 
 # Check prerequisites
-for cmd in terraform aws; do
+for cmd in terraform; do
   if ! command -v "$cmd" &> /dev/null; then
     echo "Error: '$cmd' is not installed or not in PATH."
     exit 1
@@ -20,7 +20,8 @@ for cmd in terraform aws; do
 done
 
 # Confirm destruction
-read -r -p "Type 'DESTROY' to confirm teardown: " CONFIRMATION
+read -r -p "Type 'DESTROY' to confirm teardown: " CONFIRMATION || true
+CONFIRMATION="$(echo "${CONFIRMATION:-}" | tr -d '\r"' | xargs)"
 
 if [ "$CONFIRMATION" != "DESTROY" ]; then
   echo "Destruction cancelled."
@@ -29,7 +30,7 @@ fi
 
 echo ""
 echo "Destroying CloudNative AWS infrastructure..."
-terraform -chdir="$TF_DIR" destroy -auto-approve
+terraform -chdir="$TF_DIR" destroy -auto-approve -lock=false
 
 echo ""
 echo "=================================================="
