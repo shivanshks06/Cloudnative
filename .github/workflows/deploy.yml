@@ -1,0 +1,57 @@
+name: CloudNative Deployment
+
+on:
+  workflow_run:
+    workflows: ["CloudNative CI/CD Pipeline"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare deployment files
+        env:
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+        run: |
+          printf '%s' "$PRODUCTION_ENV" > .env
+          test -s .env
+
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml,.env"
+          target: "/opt/cloudnative"
+
+      - name: Deploy application
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
+          script: |
+            cd /opt/cloudnative
+
+            echo "$DOCKERHUB_TOKEN" | docker login \
+              -u "$DOCKERHUB_USERNAME" --password-stdin
+
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            docker image prune -f
+            docker compose ps
+

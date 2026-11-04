@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment files
 .env
 .env.*
 !.env.example
@@ -25,12 +25,16 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# Prisma
+# Prisma generated files
 backend/generated/
 
 # Terraform
+.terraform/
 *.tfstate
 *.tfstate.*
-.terraform/
 *.tfvars
 !*.tfvars.example
+
+# SSH private keys
+*.pem
+*.key

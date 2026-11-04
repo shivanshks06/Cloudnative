@@ -3,7 +3,7 @@ resource "aws_security_group" "cloudnative_sg" {
   description = "Security group for CloudNative EC2"
   vpc_id      = aws_vpc.cloudnative_vpc.id
 
-  # SSH - restricted to your IP
+  # SSH - restricted to your IP only
   ingress {
     description = "SSH access"
     from_port   = 22
@@ -12,7 +12,7 @@ resource "aws_security_group" "cloudnative_sg" {
     cidr_blocks = ["${var.my_ip}/32"]
   }
 
-  # HTTP
+  # HTTP - Public web traffic
   ingress {
     description = "HTTP access"
     from_port   = 80
@@ -21,7 +21,7 @@ resource "aws_security_group" "cloudnative_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTPS
+  # HTTPS - Public SSL traffic
   ingress {
     description = "HTTPS access"
     from_port   = 443

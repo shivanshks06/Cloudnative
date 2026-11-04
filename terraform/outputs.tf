@@ -20,5 +20,5 @@ output "ssh_connection_command" {
 
 output "app_url" {
   description = "CloudNative Web App URL"
-  value       = "http://${aws_instance.cloudnative_server.public_ip}:5173"
+  value       = "http://${aws_instance.cloudnative_server.public_ip}"
 }
