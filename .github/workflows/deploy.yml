@@ -28,9 +28,11 @@ jobs:
           CI_COMMIT: ${{ github.event.workflow_run.head_sha }}
         run: |
           test -n "$PRODUCTION_ENV"
+          rm -f .env
           printf '%s\n' "$PRODUCTION_ENV" > .env
           echo "IMAGE_TAG=sha-${CI_COMMIT:0:7}" >> .env
-          chmod 600 .env
+          chmod 644 .env
+          test -s .env
 
       - name: Copy deployment files to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -54,6 +56,8 @@ jobs:
           script: |
             set -e
             cd /opt/cloudnative
+
+            chmod 600 .env
 
             echo "$DOCKERHUB_TOKEN" | docker login \
               -u "$DOCKERHUB_USERNAME" --password-stdin
