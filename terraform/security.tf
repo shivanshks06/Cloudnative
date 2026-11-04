@@ -3,13 +3,22 @@ resource "aws_security_group" "cloudnative_sg" {
   description = "Security group for CloudNative EC2"
   vpc_id      = aws_vpc.cloudnative_vpc.id
 
-  # SSH - restricted to your IP only
+  # SSH - personal access
   ingress {
-    description = "SSH access"
+    description = "SSH access from personal IP"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["${var.my_ip}/32"]
+  }
+
+  # SSH - GitHub Actions (temporary access for deployment workflow)
+  ingress {
+    description = "SSH access for GitHub Actions"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # HTTP - Public web traffic
