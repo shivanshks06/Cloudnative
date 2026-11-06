@@ -1,19 +1,21 @@
-name: CloudNative Deployment
+name: CloudNative SSM Deployment
 
 on:
   workflow_run:
     workflows: ["CloudNative CI/CD Pipeline"]
-    types:
-      - completed
-    branches:
-      - main
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+
     runs-on: ubuntu-latest
 
     steps:
@@ -22,72 +24,181 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Prepare deployment environment
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Sync secrets to AWS Parameter Store
         env:
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
-          CI_COMMIT: ${{ github.event.workflow_run.head_sha }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           set -e
+          if [ -n "$PRODUCTION_ENV" ]; then
+            echo "Syncing /cloudnative/production-env to Parameter Store..."
+            aws ssm put-parameter \
+              --name "/cloudnative/production-env" \
+              --type SecureString \
+              --value "$PRODUCTION_ENV" \
+              --overwrite \
+              --region ap-south-1
+          fi
 
-          test -n "$PRODUCTION_ENV"
-          test -n "$EC2_HOST"
-          test -n "$DOCKERHUB_USERNAME"
+          if [ -n "$DOCKERHUB_TOKEN" ]; then
+            echo "Syncing /cloudnative/dockerhub-token to Parameter Store..."
+            aws ssm put-parameter \
+              --name "/cloudnative/dockerhub-token" \
+              --type SecureString \
+              --value "$DOCKERHUB_TOKEN" \
+              --overwrite \
+              --region ap-south-1
+          fi
 
-          rm -f .env
-          printf '%s\n' "$PRODUCTION_ENV" > .env
-
-          # Remove old values so the new values are unambiguous.
-          sed -i '/^IMAGE_TAG=/d' .env
-          sed -i '/^CLIENT_URL=/d' .env
-          sed -i '/^DOCKERHUB_USERNAME=/d' .env
-
-          # Use the exact image version built by CI.
-          echo "IMAGE_TAG=sha-${CI_COMMIT:0:7}" >> .env
-
-          # Update configuration for the newly created EC2 instance.
-          echo "CLIENT_URL=http://${EC2_HOST}" >> .env
-          echo "DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}" >> .env
-
-          chmod 644 .env
-          test -s .env
-
-      - name: Copy deployment files to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,.env"
-          target: "/opt/cloudnative"
-
-      - name: Deploy application
-        uses: appleboy/ssh-action@v1.2.2
+      - name: Deploy through AWS SSM
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
-          script: |
-            set -e
-            cd /opt/cloudnative
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          APP_URL: ${{ vars.APP_URL }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          DOCKER_USER_FALLBACK: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          set -euo pipefail
 
-            chmod 600 .env
+          test -n "$INSTANCE_ID"
+          test -n "$APP_URL"
 
-            echo "$DOCKERHUB_TOKEN" | docker login \
-              -u "$DOCKERHUB_USERNAME" --password-stdin
+          REMOTE_SCRIPT=$(cat <<REMOTE
+          #!/bin/bash
+          set -euo pipefail
+          set +x
 
-            docker compose pull
-            docker compose up -d --remove-orphans
+          REGION="ap-south-1"
+          INSTANCE_DIR="/opt/cloudnative"
 
-            echo "Checking migration..."
-            docker compose logs migrate --tail=100
+          mkdir -p "\$INSTANCE_DIR"
+          cd "\$INSTANCE_DIR"
 
-            echo "Checking containers..."
-            docker compose ps
+          # Install required utilities if missing.
+          if ! command -v aws >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y awscli
+          fi
 
-            docker image prune -f
+          if ! command -v curl >/dev/null 2>&1; then
+            apt-get update
+            apt-get install -y curl
+          fi
+
+          # Retrieve encrypted production configuration.
+          aws ssm get-parameter \
+            --name "/cloudnative/production-env" \
+            --with-decryption \
+            --region "\$REGION" \
+            --query 'Parameter.Value' \
+            --output text > .env
+
+          TOKEN=\$(aws ssm get-parameter \
+            --name "/cloudnative/dockerhub-token" \
+            --with-decryption \
+            --region "\$REGION" \
+            --query 'Parameter.Value' \
+            --output text)
+
+          chmod 600 .env
+
+          # Set configuration for this deployment.
+          sed -i '/^IMAGE_TAG=/d; /^CLIENT_URL=/d' .env
+          printf '\nIMAGE_TAG=sha-${COMMIT_SHA:0:7}\nCLIENT_URL=${APP_URL}\n' >> .env
+
+          DOCKER_USER=\$(sed -n 's/^DOCKERHUB_USERNAME=//p' .env | tail -n 1)
+          if [ -z "\$DOCKER_USER" ]; then
+            DOCKER_USER="${DOCKER_USER_FALLBACK:-}"
+            if [ -n "\$DOCKER_USER" ]; then
+              echo "DOCKERHUB_USERNAME=\$DOCKER_USER" >> .env
+            fi
+          fi
+
+          if [ -z "\$DOCKER_USER" ]; then
+            echo "DOCKERHUB_USERNAME is missing from production configuration."
+            exit 1
+          fi
+
+          # Download Compose file from the exact CI commit.
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/docker-compose.yml" \
+            -o docker-compose.yml
+
+          # Authenticate and deploy.
+          echo "\$TOKEN" | docker login \
+            --username "\$DOCKER_USER" \
+            --password-stdin
+
+          unset TOKEN
+
+          docker compose pull
+          docker compose up -d --remove-orphans
+
+          # Verify migration and containers.
+          docker compose ps -a
+          docker compose logs migrate --tail=100
+
+          # Verify application responds locally.
+          for attempt in \$(seq 1 24); do
+            if curl -fsS http://localhost/ >/dev/null; then
+              echo "CloudNative deployment successful."
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Application health check failed."
+          docker compose logs --tail=100
+          exit 1
+          REMOTE
+          )
+
+          PARAMETERS=$(jq -n --arg command "$REMOTE_SCRIPT" \
+            '{commands: [$command]}')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "$PARAMETERS" \
+            --comment "CloudNative deployment ${COMMIT_SHA}" \
+            --query 'Command.CommandId' \
+            --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          for attempt in $(seq 1 60); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+
+            echo "Deployment status: $STATUS"
+
+            case "$STATUS" in
+              Success)
+                echo "Deployment completed successfully."
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm get-command-invocation \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --output json
+                exit 1
+                ;;
+            esac
+
+            sleep 10
+          done
+
+          echo "Deployment timed out."
+          exit 1

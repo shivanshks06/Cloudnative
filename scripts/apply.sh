@@ -38,21 +38,31 @@ echo ""
 echo "Retrieving Terraform outputs..."
 EC2_IP="$(terraform -chdir="$TF_DIR" output -raw ec2_public_ip 2>/dev/null || true)"
 APP_URL="$(terraform -chdir="$TF_DIR" output -raw app_url 2>/dev/null || true)"
+INSTANCE_ID="$(terraform -chdir="$TF_DIR" output -raw ec2_instance_id 2>/dev/null || true)"
 
-if [ -z "$EC2_IP" ]; then
-  echo "Error: Could not retrieve 'ec2_public_ip' from Terraform output."
+if [ -z "$EC2_IP" ] || [ -z "$INSTANCE_ID" ]; then
+  echo "Error: Could not retrieve outputs from Terraform."
   exit 1
 fi
 
-echo "Elastic IP: $EC2_IP"
-echo "App URL:    $APP_URL"
+echo "Instance ID: $INSTANCE_ID"
+echo "Elastic IP:  $EC2_IP"
+echo "App URL:     $APP_URL"
 
-# 5. Update GitHub Secret EC2_HOST
+# 5. Update GitHub Secrets and Variables
 echo ""
 echo "Updating GitHub secret 'EC2_HOST'..."
 echo "$EC2_IP" | gh secret set EC2_HOST
 
-echo "GitHub secret 'EC2_HOST' successfully updated."
+echo "Updating GitHub variables 'EC2_INSTANCE_ID' and 'APP_URL'..."
+REPO="repos/$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || echo 'shivanshks06/Cloudnative')"
+gh api -X POST "/$REPO/actions/variables" -f name="EC2_INSTANCE_ID" -f value="$INSTANCE_ID" 2>/dev/null || \
+  gh api -X PATCH "/$REPO/actions/variables/EC2_INSTANCE_ID" -f name="EC2_INSTANCE_ID" -f value="$INSTANCE_ID"
+
+gh api -X POST "/$REPO/actions/variables" -f name="APP_URL" -f value="$APP_URL" 2>/dev/null || \
+  gh api -X PATCH "/$REPO/actions/variables/APP_URL" -f name="APP_URL" -f value="$APP_URL"
+
+echo "GitHub configuration successfully updated."
 
 # 6. Trigger CI/CD pipeline
 echo ""
