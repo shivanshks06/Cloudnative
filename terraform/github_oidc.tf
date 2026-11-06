@@ -6,6 +6,11 @@ resource "aws_iam_openid_connect_provider" "github" {
     "sts.amazonaws.com"
   ]
 
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "1c5860f56021f76548f607d06470d0db719709a8"
+  ]
+
   tags = {
     Name = "github-actions-oidc"
   }
@@ -29,7 +34,12 @@ resource "aws_iam_role" "github_actions" {
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = "repo:shivanshks06/Cloudnative:ref:refs/heads/main"
+        }
+        StringLike = {
+          "token.actions.githubusercontent.com:sub" = [
+            "repo:shivanshks06/Cloudnative:*",
+            "repo:shivanshks06/cloudnative:*"
+          ]
         }
       }
     }]
