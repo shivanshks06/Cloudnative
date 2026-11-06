@@ -46,8 +46,10 @@ resource "aws_instance" "cloudnative_server" {
     mkdir -p /opt/cloudnative
     chown -R ubuntu:ubuntu /opt/cloudnative
 
-    # Install and start AWS Systems Manager Agent
+    # Install and start AWS Systems Manager Agent and AWS CLI
     snap install amazon-ssm-agent --classic || true
+    snap install aws-cli --classic || true
+    ln -sf /snap/bin/aws /usr/local/bin/aws || true
 
     systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
     systemctl restart snap.amazon-ssm-agent.amazon-ssm-agent.service
