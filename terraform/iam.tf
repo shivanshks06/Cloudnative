@@ -27,3 +27,18 @@ resource "aws_iam_instance_profile" "cloudnative_profile" {
   role = aws_iam_role.cloudnative_ec2_role.name
 }
 
+resource "aws_iam_role_policy" "cloudnative_parameter_access" {
+  name = "cloudnative-parameter-store-access"
+  role = aws_iam_role.cloudnative_ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParameter"
+      ]
+      Resource = "arn:aws:ssm:ap-south-1:802814881052:parameter/cloudnative/*"
+    }]
+  })
+}
