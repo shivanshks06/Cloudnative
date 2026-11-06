@@ -146,10 +146,15 @@ jobs:
             exit 1
           fi
 
-          # Download Compose file from the exact CI commit.
+          # Download Compose file and monitoring configurations from the exact CI commit.
+          mkdir -p monitoring
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/docker-compose.yml" \
             -o docker-compose.yml
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/prometheus.yml" \
+            -o monitoring/prometheus.yml
 
           # Authenticate and deploy.
           echo "\$TOKEN" | docker login \
