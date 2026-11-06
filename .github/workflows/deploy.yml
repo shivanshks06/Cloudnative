@@ -24,12 +24,6 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Inspect OIDC Token Claims
-        run: |
-          ID_TOKEN=$(curl -sLS -H "User-Agent: actions/exec" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')
-          echo "=== Decoded JWT Payload ==="
-          echo "$ID_TOKEN" | jq -R 'split(".") | .[1] | @base64d | fromjson'
-
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -39,24 +33,26 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      - name: Sync secrets to AWS Parameter Store
+      - name: Upload production secrets to Parameter Store
         env:
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          set -e
+          set -euo pipefail
+
           if [ -n "$PRODUCTION_ENV" ]; then
-            echo "Syncing /cloudnative/production-env to Parameter Store..."
+            echo "Formatting and uploading /cloudnative/production-env..."
+            FORMATTED_ENV=$(python3 -c "import os, sys; raw = os.environ.get('PRODUCTION_ENV', ''); sys.stdout.write(raw.replace(r'\n', '\n').replace('\r', ''))")
             aws ssm put-parameter \
               --name "/cloudnative/production-env" \
               --type SecureString \
-              --value "$PRODUCTION_ENV" \
+              --value "$FORMATTED_ENV" \
               --overwrite \
               --region ap-south-1
           fi
 
           if [ -n "$DOCKERHUB_TOKEN" ]; then
-            echo "Syncing /cloudnative/dockerhub-token to Parameter Store..."
+            echo "Uploading /cloudnative/dockerhub-token..."
             aws ssm put-parameter \
               --name "/cloudnative/dockerhub-token" \
               --type SecureString \
@@ -64,6 +60,8 @@ jobs:
               --overwrite \
               --region ap-south-1
           fi
+
+          echo "Production parameters synchronized successfully."
 
       - name: Deploy through AWS SSM
         env:
@@ -110,12 +108,16 @@ jobs:
           fi
 
           # Retrieve encrypted production configuration.
-          aws ssm get-parameter \
+          RAW_ENV=\$(aws ssm get-parameter \
             --name "/cloudnative/production-env" \
             --with-decryption \
             --region "\$REGION" \
             --query 'Parameter.Value' \
-            --output text > .env
+            --output text)
+
+          # Format environment variables to ensure proper newlines
+          python3 -c "import sys; sys.stdout.write(sys.stdin.read().replace(r'\n', '\n').replace('\r', ''))" <<< "\$RAW_ENV" > .env
+          chmod 600 .env
 
           TOKEN=\$(aws ssm get-parameter \
             --name "/cloudnative/dockerhub-token" \
@@ -124,11 +126,12 @@ jobs:
             --query 'Parameter.Value' \
             --output text)
 
-          chmod 600 .env
-
           # Set configuration for this deployment.
           sed -i '/^IMAGE_TAG=/d; /^CLIENT_URL=/d' .env
           printf '\nIMAGE_TAG=sha-${COMMIT_SHA:0:7}\nCLIENT_URL=${APP_URL}\n' >> .env
+
+          echo "Configured environment keys in .env:"
+          sed 's/=.*//' .env
 
           DOCKER_USER=\$(sed -n 's/^DOCKERHUB_USERNAME=//p' .env | tail -n 1)
           if [ -z "\$DOCKER_USER" ]; then
