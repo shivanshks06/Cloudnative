@@ -147,7 +147,7 @@ jobs:
           fi
 
           # Download Compose file and monitoring configurations from the exact CI commit.
-          mkdir -p monitoring
+          mkdir -p monitoring/grafana/provisioning/datasources
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/docker-compose.yml" \
             -o docker-compose.yml
@@ -155,6 +155,10 @@ jobs:
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/prometheus.yml" \
             -o monitoring/prometheus.yml
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/provisioning/datasources/prometheus.yml" \
+            -o monitoring/grafana/provisioning/datasources/prometheus.yml || true
 
           # Authenticate and deploy.
           echo "\$TOKEN" | docker login \

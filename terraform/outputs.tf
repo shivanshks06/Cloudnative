@@ -23,6 +23,16 @@ output "app_url" {
   value       = "http://${aws_eip.cloudnative.public_ip}"
 }
 
+output "grafana_url" {
+  description = "CloudNative Grafana URL"
+  value       = "http://${aws_eip.cloudnative.public_ip}:3000"
+}
+
+output "prometheus_url" {
+  description = "CloudNative Prometheus URL"
+  value       = "http://${aws_eip.cloudnative.public_ip}:9090"
+}
+
 output "ssm_connection_command" {
   description = "Connect to EC2 through AWS Systems Manager"
   value       = "aws ssm start-session --target ${aws_instance.cloudnative_server.id} --region ap-south-1 --profile cloudnative"
