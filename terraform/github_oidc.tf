@@ -39,9 +39,8 @@ resource "aws_iam_role" "github_actions" {
         }
         StringLike = {
           "token.actions.githubusercontent.com:sub" = [
-            "repo:shivanshks06/*",
-            "repo:shivanshks06/Cloudnative:*",
-            "repo:shivanshks06/cloudnative:*"
+            "repo:shivanshks06*:*",
+            "repo:*Cloudnative*:*"
           ]
         }
       }
