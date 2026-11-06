@@ -7,8 +7,10 @@ resource "aws_iam_openid_connect_provider" "github" {
   ]
 
   thumbprint_list = [
+    "541176fd43c6f2df1e3c7ae9aad020187dbcdb24",
     "6938fd4d98bab03faadb97b34396831e3780aea1",
-    "1c5860f56021f76548f607d06470d0db719709a8"
+    "1c5860f56021f76548f607d06470d0db719709a8",
+    "ab9d0263244dd0326eb67015705a667e79cfe998"
   ]
 
   tags = {
@@ -37,6 +39,7 @@ resource "aws_iam_role" "github_actions" {
         }
         StringLike = {
           "token.actions.githubusercontent.com:sub" = [
+            "repo:shivanshks06/*",
             "repo:shivanshks06/Cloudnative:*",
             "repo:shivanshks06/cloudnative:*"
           ]
