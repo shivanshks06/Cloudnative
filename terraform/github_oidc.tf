@@ -64,6 +64,15 @@ resource "aws_iam_role_policy" "github_ssm_deployment" {
           "ssm:DescribeInstanceInformation"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:PutParameter"
+        ]
+        Resource = [
+          "arn:aws:ssm:ap-south-1:802814881052:parameter/cloudnative/*"
+        ]
       }
     ]
   })
