@@ -178,6 +178,10 @@ jobs:
             -o monitoring/grafana/dashboards/cloudnative-overview.json || true
 
           curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/dashboards/cloudnative-logging.json" \
+            -o monitoring/grafana/dashboards/cloudnative-logging.json || true
+
+          curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/logging/loki/loki-config.yaml" \
             -o logging/loki/loki-config.yaml
 

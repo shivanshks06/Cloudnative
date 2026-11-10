@@ -213,3 +213,96 @@ groups:
           summary: "Backend P95 latency exceeds 500ms"
         labels:
           severity: warning
+
+  - orgId: 1
+    name: CloudNative-Log-Alerts
+    folder: CloudNative
+    interval: 1m
+    rules:
+      - uid: alert-backend-log-errors
+        title: CloudNative-Backend-Log-Errors
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({container="cloudnative-backend"} |~ "(?i)error|exception|fatal" [5m]))'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [10]
+        for: 2m
+        annotations:
+          summary: "Backend container error logs spike (>10 in 5m)"
+        labels:
+          severity: warning
+
+      - uid: alert-nginx-5xx-logs
+        title: CloudNative-Nginx-5xx-Logs
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({container="cloudnative-frontend"} |~ "\" 5[0-9][0-9] " [5m]))'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5]
+        for: 2m
+        annotations:
+          summary: "Frontend/Nginx 5xx access logs spike (>5 in 5m)"
+        labels:
+          severity: warning
+
+      - uid: alert-postgres-errors
+        title: CloudNative-Postgres-Errors
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(count_over_time({container="cloudnative-postgres"} |~ "(?i)error|fatal" [5m]))'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [3]
+        for: 2m
+        annotations:
+          summary: "Postgres database error logs detected (>3 in 5m)"
+        labels:
+          severity: warning
+
