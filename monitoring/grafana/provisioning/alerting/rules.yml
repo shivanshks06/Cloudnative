@@ -1,0 +1,215 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: CloudNative-Infrastructure-Alerts
+    folder: CloudNative
+    interval: 1m
+    rules:
+      - uid: alert-high-cpu
+        title: CloudNative-High-CPU
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: '100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [85]
+        for: 5m
+        annotations:
+          summary: "Host CPU utilization is above 85%"
+        labels:
+          severity: warning
+
+      - uid: alert-high-memory
+        title: CloudNative-High-Memory
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: '100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [85]
+        for: 5m
+        annotations:
+          summary: "Host Memory utilization is above 85%"
+        labels:
+          severity: warning
+
+      - uid: alert-high-disk
+        title: CloudNative-High-Disk
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: '100 * (1 - node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay"})'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [85]
+        for: 5m
+        annotations:
+          summary: "EBS root filesystem utilization is above 85%"
+        labels:
+          severity: warning
+
+      - uid: alert-target-down
+        title: CloudNative-Monitoring-Target-Down
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'up{job=~"node-exporter|cadvisor"} == 0'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        for: 2m
+        annotations:
+          summary: "Monitoring target is down"
+        labels:
+          severity: critical
+
+  - orgId: 1
+    name: CloudNative-Application-Alerts
+    folder: CloudNative
+    interval: 1m
+    rules:
+      - uid: alert-backend-down
+        title: CloudNative-Backend-Down
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: '(up{job="backend"} == 0) or absent(up{job="backend"})'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        for: 1m
+        annotations:
+          summary: "CloudNative Backend is down or missing"
+        labels:
+          severity: critical
+
+      - uid: alert-backend-5xx
+        title: CloudNative-Backend-High-5xx-Errors
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: '100 * sum(rate(cloudnative_http_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(cloudnative_http_requests_total[5m])), 0.001)'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5]
+        for: 2m
+        annotations:
+          summary: "Backend 5xx error rate exceeds 5%"
+        labels:
+          severity: warning
+
+      - uid: alert-backend-latency
+        title: CloudNative-Backend-High-Latency
+        condition: B
+        data:
+          - refId: A
+            queryType: ''
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: 'histogram_quantile(0.95, sum by (le) (rate(cloudnative_http_request_duration_seconds_bucket[5m])))'
+              refId: A
+          - refId: B
+            queryType: ''
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.5]
+        for: 3m
+        annotations:
+          summary: "Backend P95 latency exceeds 500ms"
+        labels:
+          severity: warning

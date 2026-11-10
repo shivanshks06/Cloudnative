@@ -149,6 +149,8 @@ jobs:
           # Download Compose file, monitoring, and logging configurations from the exact CI commit.
           mkdir -p monitoring/grafana/provisioning/datasources
           mkdir -p monitoring/grafana/provisioning/dashboards
+          mkdir -p monitoring/grafana/provisioning/alerting
+          mkdir -p monitoring/grafana/dashboards
           mkdir -p logging/loki logging/alloy
 
           curl -fsSL \
@@ -168,8 +170,12 @@ jobs:
             -o monitoring/grafana/provisioning/dashboards/dashboards.yml || true
 
           curl -fsSL \
-            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/provisioning/dashboards/cloudnative-overview.json" \
-            -o monitoring/grafana/provisioning/dashboards/cloudnative-overview.json || true
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/provisioning/alerting/rules.yml" \
+            -o monitoring/grafana/provisioning/alerting/rules.yml || true
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/dashboards/cloudnative-overview.json" \
+            -o monitoring/grafana/dashboards/cloudnative-overview.json || true
 
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/logging/loki/loki-config.yaml" \
@@ -188,6 +194,7 @@ jobs:
 
           docker compose pull
           docker compose up -d --remove-orphans
+          docker compose restart grafana
 
           # Verify migration and containers.
           docker compose ps -a
