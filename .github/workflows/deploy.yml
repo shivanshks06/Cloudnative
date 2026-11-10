@@ -185,6 +185,20 @@ jobs:
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/logging/alloy/config.alloy" \
             -o logging/alloy/config.alloy
 
+          mkdir -p scripts
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/scripts/backup-db.sh" \
+            -o scripts/backup-db.sh || true
+          chmod +x scripts/backup-db.sh || true
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/scripts/rollback.sh" \
+            -o scripts/rollback.sh || true
+          chmod +x scripts/rollback.sh || true
+
+          # Ensure daily cron backup is scheduled at 02:00 UTC
+          (crontab -l 2>/dev/null | grep -v 'backup-db.sh' ; echo "0 2 * * * /opt/cloudnative/scripts/backup-db.sh >> /var/log/cloudnative-backup.log 2>&1") | crontab - || true
+
           # Authenticate and deploy.
           echo "\$TOKEN" | docker login \
             --username "\$DOCKER_USER" \

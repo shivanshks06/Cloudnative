@@ -16,7 +16,8 @@ resource "aws_instance" "cloudnative_server" {
   }
 
   metadata_options {
-    http_tokens = "required"
+    http_endpoint = "enabled"
+    http_tokens   = "required"
   }
 
   user_data = <<-EOF

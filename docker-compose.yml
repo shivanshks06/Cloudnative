@@ -3,6 +3,8 @@ services:
     image: postgres:16-alpine
     container_name: cloudnative-postgres
     restart: unless-stopped
+    mem_limit: 384m
+    cpus: "0.50"
     environment:
       POSTGRES_USER: cloudnative
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -19,6 +21,8 @@ services:
     image: redis:7-alpine
     container_name: cloudnative-redis
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - cloudnative_redisdata:/data
@@ -43,6 +47,8 @@ services:
     image: ${DOCKERHUB_USERNAME}/cloudnative-backend:${IMAGE_TAG:-latest}
     container_name: cloudnative-backend
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.50"
     environment:
       PORT: 5000
       NODE_ENV: production
@@ -63,6 +69,8 @@ services:
     image: ${DOCKERHUB_USERNAME}/cloudnative-frontend:${IMAGE_TAG:-latest}
     container_name: cloudnative-frontend
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
     ports:
       - "80:80"
     depends_on:
@@ -72,6 +80,8 @@ services:
     image: prom/prometheus:latest
     container_name: cloudnative-prometheus
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.35"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -87,6 +97,8 @@ services:
     image: grafana/grafana:latest
     container_name: cloudnative-grafana
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.35"
     ports:
       - "3000:3000"
     environment:
@@ -115,6 +127,8 @@ services:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cloudnative-cadvisor
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
     privileged: true
     devices:
       - /dev/kmsg
@@ -131,6 +145,8 @@ services:
     image: grafana/loki:3.6.5
     container_name: cloudnative-loki
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: "0.35"
     command:
       - "-config.file=/etc/loki/config.yaml"
     volumes:
@@ -138,12 +154,13 @@ services:
       - cloudnative_loki_data:/loki
     expose:
       - "3100"
-    mem_limit: 384m
 
   alloy:
     image: grafana/alloy:v1.11.0
     container_name: cloudnative-alloy
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: "0.25"
     user: "0:0"
     command:
       - run
@@ -156,7 +173,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - loki
-    mem_limit: 128m
 
 volumes:
   cloudnative_pgdata:

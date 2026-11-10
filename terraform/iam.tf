@@ -42,3 +42,22 @@ resource "aws_iam_role_policy" "cloudnative_parameter_access" {
     }]
   })
 }
+
+resource "aws_iam_role_policy" "cloudnative_backup_s3" {
+  name = "cloudnative-backup-s3"
+  role = aws_iam_role.cloudnative_ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:AbortMultipartUpload"
+        ]
+        Resource = "arn:aws:s3:::${var.backup_bucket_name}/*"
+      }
+    ]
+  })
+}
