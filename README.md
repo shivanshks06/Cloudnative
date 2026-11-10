@@ -260,8 +260,3 @@ docker compose ps
 * **Strict `.gitignore` Enforcement:** All `.env`, `*.tfstate`, `*.tfvars`, `*.pem`, `*.key`, and build artifacts are strictly excluded from version control.
 * **Least-Privilege Policies:** IAM roles and policies follow strict resource boundaries restricted exclusively to `cloudnative/*` namespaces.
 
----
-
-## License
-
-This project is licensed under the MIT License.
