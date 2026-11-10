@@ -146,8 +146,10 @@ jobs:
             exit 1
           fi
 
-          # Download Compose file and monitoring configurations from the exact CI commit.
+          # Download Compose file, monitoring, and logging configurations from the exact CI commit.
           mkdir -p monitoring/grafana/provisioning/datasources
+          mkdir -p logging/loki logging/alloy
+
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/docker-compose.yml" \
             -o docker-compose.yml
@@ -159,6 +161,14 @@ jobs:
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/provisioning/datasources/prometheus.yml" \
             -o monitoring/grafana/provisioning/datasources/prometheus.yml || true
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/logging/loki/loki-config.yaml" \
+            -o logging/loki/loki-config.yaml
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/logging/alloy/config.alloy" \
+            -o logging/alloy/config.alloy
 
           # Authenticate and deploy.
           echo "\$TOKEN" | docker login \

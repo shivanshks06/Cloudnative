@@ -1,0 +1,43 @@
+// Discover Docker containers
+discovery.docker "cloudnative" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+// Extract container names and useful metadata
+discovery.relabel "cloudnative" {
+  targets = discovery.docker.cloudnative.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    target_label = "environment"
+    replacement  = "production"
+  }
+}
+
+// Collect Docker container logs
+loki.source.docker "cloudnative" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.cloudnative.output
+  refresh_interval = "5s"
+  forward_to       = [loki.process.cloudnative.receiver]
+}
+
+// Process logs
+loki.process "cloudnative" {
+  stage.docker {}
+
+  forward_to = [loki.write.local.receiver]
+}
+
+// Send logs to Loki
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

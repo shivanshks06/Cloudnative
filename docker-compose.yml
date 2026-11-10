@@ -97,6 +97,7 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - prometheus
+      - loki
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -125,8 +126,41 @@ services:
     expose:
       - "8080"
 
+  loki:
+    image: grafana/loki:3.6.5
+    container_name: cloudnative-loki
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/loki/config.yaml"
+    volumes:
+      - ./logging/loki/loki-config.yaml:/etc/loki/config.yaml:ro
+      - cloudnative_loki_data:/loki
+    expose:
+      - "3100"
+    mem_limit: 384m
+
+  alloy:
+    image: grafana/alloy:v1.11.0
+    container_name: cloudnative-alloy
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./logging/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - cloudnative_alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    mem_limit: 128m
+
 volumes:
   cloudnative_pgdata:
   cloudnative_redisdata:
   cloudnative_prometheus_data:
   cloudnative_grafana_data:
+  cloudnative_loki_data:
+  cloudnative_alloy_data:
