@@ -148,6 +148,7 @@ jobs:
 
           # Download Compose file, monitoring, and logging configurations from the exact CI commit.
           mkdir -p monitoring/grafana/provisioning/datasources
+          mkdir -p monitoring/grafana/provisioning/dashboards
           mkdir -p logging/loki logging/alloy
 
           curl -fsSL \
@@ -161,6 +162,14 @@ jobs:
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/provisioning/datasources/prometheus.yml" \
             -o monitoring/grafana/provisioning/datasources/prometheus.yml || true
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/provisioning/dashboards/dashboards.yml" \
+            -o monitoring/grafana/provisioning/dashboards/dashboards.yml || true
+
+          curl -fsSL \
+            "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/monitoring/grafana/provisioning/dashboards/cloudnative-overview.json" \
+            -o monitoring/grafana/provisioning/dashboards/cloudnative-overview.json || true
 
           curl -fsSL \
             "https://raw.githubusercontent.com/shivanshks06/Cloudnative/${COMMIT_SHA}/logging/loki/loki-config.yaml" \
